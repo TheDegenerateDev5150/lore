@@ -304,6 +304,30 @@ def lore_server_executable_path(request):
 
 
 @pytest.fixture(scope="session")
+def lore_library(request):
+    """
+    Loads the public Lore C API library (`liblore`) for tests that need to
+    observe API-level behavior the CLI does not surface. Skips if the library
+    was not built alongside the client binary.
+    """
+    from lore_ffi import LoreLibrary, library_filename
+
+    library_path = os.getenv("LORE_LIBRARY_PATH")
+    if not library_path:
+        binary = request.config.getoption("--lore-client-binary")
+        build = binary if binary in ("release", "debug") else "release"
+        library_path = str(Path.cwd() / "target" / build / library_filename())
+    library_path = str(Path(library_path).resolve())
+    if not os.path.exists(library_path):
+        pytest.skip(
+            f"Lore library not found at {library_path}; "
+            "set LORE_LIBRARY_PATH to run C API tests"
+        )
+
+    return LoreLibrary(library_path)
+
+
+@pytest.fixture(scope="session")
 def lore_remote_url(request, lore_main_server_ports):
     """
     Validates and returns the Lore remote URL.
